@@ -76,16 +76,23 @@ namespace CoreCodeCamp.Controllers
             }
         }
 
+        [HttpPost]
         public async Task<ActionResult<CampModel>> Post(CampModel model)
         {
             try
             {
+                var existing = await _campRepository.GetCampAsync(model.Moniker);
+                if (existing != null)
+                {
+                    return BadRequest("User already existe");
+                }
+                
                 var location = _linkGenerator.GetPathByAction("Get", "Camps", new { moniker = model.Moniker });
                 if (string.IsNullOrWhiteSpace(location))
                 {
                     return BadRequest("Could not use current moniker");
                 }
-                var camp = _mapper.Map<Camp>(model);
+                Camp camp = _mapper.Map<Camp>(model);
                 _campRepository.Add(camp);
               
                 if (await _campRepository.SaveChangesAsync())
@@ -99,6 +106,31 @@ namespace CoreCodeCamp.Controllers
             }
 
             return  BadRequest();
+        }
+
+        [HttpPut("{moniker}")]
+        public async Task<ActionResult<CampModel>> Put(string moniker, CampModel model)
+        {
+            try
+            {
+                var oldCamp = await _campRepository.GetCampAsync(moniker);
+                if (oldCamp == null) return NotFound($"Could not find camp with {moniker}");
+
+                _mapper.Map(model, oldCamp);
+
+                if (await _campRepository.SaveChangesAsync())
+                {
+                    return _mapper.Map<CampModel>(oldCamp);
+                }
+
+                return BadRequest();
+
+            }
+            catch (Exception)
+            {
+
+                return this.StatusCode(StatusCodes.Status500InternalServerError, " Datatbase Error ");
+            }
         }
     }
 }
